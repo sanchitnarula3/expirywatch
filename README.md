@@ -165,11 +165,3 @@ Execute the SQL scripts inside `supabase/migrations/` in your Supabase SQL Edito
 npm run dev
 ```
 Open `http://localhost:3000` in your browser.
-
----
-
-## Team Work Allocation
-
-* **Member 1 (Frontend & UX):** Login UI, Urgency Dashboard with color-coded countdown badges, Document Upload form, and Renewal History modal.
-* **Member 2 (Backend, Auth & Storage):** PostgreSQL schema, Supabase Storage bucket integration, and Role-Based Access Control (Admin vs. Department Head).
-* **Member 3 (Cloud Automation & Notifications):** Daily scheduled cloud job, expiry threshold query logic, duplicate-alert prevention, and Resend email templates.
