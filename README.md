@@ -54,28 +54,28 @@ ExpiryWatch decouples heavy file storage, relational metadata, authentication, b
 
 ---
 
-## Cloud & Tech Stack (100% Free Tier)
+## Cloud & Tech Stack
 
-### Primary Recommended Stack (Zero-Cost Student Cloud Stack)
-Designed for rapid team development without credit-card billing risks while maintaining clean cloud service separation:
+### Primary Architecture & Services
+Designed with a decoupled cloud architecture ensuring reliability, security, and seamless developer workflows:
 
-| Layer | Technology / Cloud Service | Free Tier Allowance & Purpose |
+| Layer | Technology / Cloud Service | Role & Functionality |
 | :--- | :--- | :--- |
-| **Frontend & API** | **Next.js (React) + Tailwind CSS** | Full-stack web UI, urgency dashboard, and server API routes. |
-| **Web Hosting** | **Vercel** | Free CI/CD deployments directly from GitHub (`100 GB` bandwidth/mo). |
-| **Database** | **Supabase (PostgreSQL)** | `500 MB` managed Postgres database for metadata, roles, and renewal logs. |
-| **Cloud Object Storage** | **Supabase Storage** | `1 GB` S3-compatible bucket storage for uploaded PDFs and scans. |
-| **Identity & Access (IAM)** | **Supabase Auth + Row-Level Security (RLS)** | JWT authentication and database-level RBAC policies per department. |
-| **Scheduled Cloud Function** | **Supabase Edge Functions + `pg_cron`** *(or Vercel Cron)* | Serverless daily background job (`500,000` invocations/mo free). |
-| **Notification Service** | **Resend API** | Transactional email reminders (`3,000` emails/mo free). |
+| **Frontend & API** | **Next.js (React) + Tailwind CSS** | Full-stack web application, urgency dashboard, and serverless API routes. |
+| **Web Hosting & Edge** | **Vercel** | Edge deployment platform with automated CI/CD directly from GitHub. |
+| **Database** | **Supabase (PostgreSQL)** | Managed PostgreSQL relational database for document metadata, RBAC profiles, and renewal audit logs. |
+| **Cloud Object Storage** | **Supabase Storage** | S3-compatible cloud object storage for uploaded PDFs and scanned documents. |
+| **Identity & Access (IAM)** | **Supabase Auth + Row-Level Security (RLS)** | JWT authentication and database-level RBAC policies enforced per department. |
+| **Scheduled Compute** | **Vercel Cron / Supabase Edge Functions** | Serverless daily background task to scan document expiries and trigger alerts. |
+| **Notification Service** | **Resend API** | Transactional email delivery service for automated renewal reminder alerts. |
 
-### Alternative Cloud-Native Mapping (AWS Free Tier)
-If deploying on Amazon Web Services to mirror traditional enterprise cloud infrastructure:
-* **Object Storage:** Amazon S3 (`5 GB` free for 12 months)
-* **Database:** Amazon DynamoDB (`25 GB` always free)
-* **Identity & Access Management:** Amazon Cognito (`50,000` MAUs free)
-* **Scheduled Compute:** Amazon EventBridge Scheduler + AWS Lambda (`1M` requests/mo always free)
-* **Notifications:** Amazon SES (Simple Email Service)
+### Enterprise Cloud Architecture Mapping (AWS)
+For enterprise deployments on Amazon Web Services:
+* **Object Storage:** Amazon S3
+* **Database:** Amazon Aurora PostgreSQL / DynamoDB
+* **Identity & Access Management:** Amazon Cognito
+* **Scheduled Compute:** Amazon EventBridge Scheduler + AWS Lambda
+* **Notifications:** Amazon Simple Email Service (SES)
 
 ---
 
@@ -135,33 +135,3 @@ expirywatch/
 ├── vercel.json                         # [Member 3] Daily cron schedule config
 └── README.md
 ```
-
----
-
-## Local Setup & Installation
-
-### 1. Clone the Repository
-```bash
-git clone https://github.com/<your-org-or-username>/expirywatch.git
-cd expirywatch
-npm install
-```
-
-### 2. Configure Environment Variables
-Copy `.env.example` to `.env.local` and fill in your free-tier cloud keys:
-```env
-NEXT_PUBLIC_SUPABASE_URL=your_supabase_project_url
-NEXT_PUBLIC_SUPABASE_ANON_KEY=your_supabase_anon_key
-SUPABASE_SERVICE_ROLE_KEY=your_supabase_service_role_key
-RESEND_API_KEY=your_resend_api_key
-CRON_SECRET=your_random_secret_token
-```
-
-### 3. Run Database Migrations
-Execute the SQL scripts inside `supabase/migrations/` in your Supabase SQL Editor to create the tables, storage bucket (`documents`), and department-level Row-Level Security policies.
-
-### 4. Start the Development Server
-```bash
-npm run dev
-```
-Open `http://localhost:3000` in your browser.
