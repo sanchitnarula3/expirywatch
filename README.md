@@ -135,3 +135,24 @@ expirywatch/
 ├── vercel.json                         # [Member 3] Daily cron schedule config
 └── README.md
 ```
+
+## Member 1 implementation
+
+The Member 1 frontend slice is implemented in this repository:
+
+* `/login` provides an accessible sign-in form and client-side navigation into the workspace. It is intentionally ready for Supabase Auth wiring, but does not claim to authenticate until Member 2 connects the client.
+* `/dashboard` provides the Red / Orange / Yellow / Green urgency overview, searchable and filterable document table, expiry calculations, and responsive layout.
+* `src/components/UploadModal.tsx` adds document metadata and a local file selection boundary until Supabase Storage is connected.
+* `src/components/RenewalModal.tsx` updates the local expiry state and captures renewal notes for the future `renewal_logs` integration.
+* `src/components/StatusBadge.tsx` centralises the four README-defined urgency states.
+
+The current UI uses typed demo records so it can be run and reviewed without cloud credentials. It does not upload files, authenticate users, persist records, or send email until the Member 2 and Member 3 Supabase/Resend work is connected.
+
+### Local development
+
+```bash
+npm install
+npm run dev
+```
+
+Open `http://localhost:3000/login` to review the Member 1 flow. Production verification uses `npm run build`.
