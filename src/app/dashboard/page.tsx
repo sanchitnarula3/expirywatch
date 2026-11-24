@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { daysUntilExpiry, DocumentStatus, formatExpiryDate, getDocumentStatus } from "@/lib/documents";
+import { daysUntilExpiry, DocumentStatus, formatExpiryDate, formatToday, getDocumentStatus } from "@/lib/documents";
 import { loadDocuments, loadProfile, loadRenewals, saveDocuments, saveRenewals } from "@/lib/local-store";
 import { hasLocalSession, signOutLocally } from "@/lib/local-auth";
 import { DocumentRecord, Profile, RenewalLog } from "@/types/database";
@@ -37,7 +37,7 @@ export default function DashboardPage() {
   const scopedDocuments = useMemo(() => documents.filter((doc) => profile?.role === "admin" ? departmentFilter === "all" || doc.department === departmentFilter : doc.department === profile?.department), [documents, departmentFilter, profile]);
   const counts = useMemo(() => statusOrder.reduce((result, status) => ({ ...result, [status]: scopedDocuments.filter((doc) => getDocumentStatus(doc.expiry_date) === status).length }), {} as Record<DocumentStatus, number>), [scopedDocuments]);
   const visible = scopedDocuments.filter((doc) => { const status = getDocumentStatus(doc.expiry_date); return (filter === "all" || status === filter) && `${doc.title} ${doc.department} ${doc.category}`.toLowerCase().includes(query.toLowerCase()); }).sort((a, b) => daysUntilExpiry(a.expiry_date) - daysUntilExpiry(b.expiry_date));
-  const dateLabel = new Intl.DateTimeFormat("en-IN", { weekday: "long", day: "numeric", month: "long", year: "numeric" }).format(new Date());
+  const dateLabel = formatToday();
 
   function addDocument(document: DocumentRecord) { const next = [...documents, document]; setDocuments(next); saveDocuments(next); setUploadOpen(false); setNotice("Document added to your local workspace."); }
   function renew(date: string, notes: string) { if (!renewing || !profile) return; const now = new Date().toISOString(); const nextDocuments = documents.map((doc) => doc.id === renewing.id ? { ...doc, expiry_date: date } : doc); const nextRenewals = [{ id: `renewal-${Date.now()}`, document_id: renewing.id, renewed_by: profile.id, previous_expiry_date: renewing.expiry_date, new_expiry_date: date, notes, renewed_at: now }, ...renewals]; setDocuments(nextDocuments); setRenewals(nextRenewals); saveDocuments(nextDocuments); saveRenewals(nextRenewals); setRenewing(null); setNotice("Renewal saved to your local history."); }

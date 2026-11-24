@@ -31,6 +31,15 @@ export function formatExpiryDate(expiryDate: string): string {
   }).format(new Date(`${expiryDate}T00:00:00`));
 }
 
+export function formatToday(today = new Date()): string {
+  return new Intl.DateTimeFormat("en-IN", {
+    weekday: "long",
+    day: "numeric",
+    month: "long",
+    year: "numeric",
+  }).format(today);
+}
+
 export const demoDocuments: DocumentRecord[] = [
   { id: "doc-1", title: "General Liability Insurance", category: "Insurance", department: "Operations", owner_id: "demo-user", file_path: "operations/liability.pdf", expiry_date: "2026-12-02", reminder_days_before: 7, last_notified_at: null, created_at: "2026-01-15T08:00:00Z" },
   { id: "doc-2", title: "HRMS Software Licence", category: "Licence", department: "IT", owner_id: "demo-user", file_path: "it/hrms-licence.pdf", expiry_date: "2026-12-18", reminder_days_before: 7, last_notified_at: null, created_at: "2026-02-10T08:00:00Z" },
