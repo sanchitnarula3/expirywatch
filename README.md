@@ -127,11 +127,16 @@ expirywatch/
 │   ├── lib/
 │   │   ├── supabase/
 │   │   │   ├── client.ts               # [Member 2] Browser Supabase client
-│   │   │   └── server.ts               # [Member 2] Server Supabase client
+│   │   │   ├── server.ts               # [Member 2] Server Supabase client
+│   │   │   └── services.ts             # [Member 2] Typed DB & storage services
 │   │   └── resend.ts                   # [Member 3] Email client setup
 │   └── types/
-│       └── database.ts                 # Shared TypeScript interfaces
-├── .env.local                          # API keys (never commit to Git)
+│       └── database.ts                 # Shared TypeScript interfaces & Supabase schema
+├── supabase/
+│   ├── migrations/                     # [Member 2] SQL migrations
+│   └── schema.sql                      # [Member 2] Supabase schema, RLS & storage script
+├── .env.example                        # Cloud environment variables template
+├── .env.local                          # Local API keys (ignored in Git)
 ├── vercel.json                         # [Member 3] Daily cron schedule config
 └── README.md
 ```
@@ -148,6 +153,29 @@ The Member 1 frontend slice is implemented in this repository:
 
 The current UI uses typed demo records and a versioned browser-local adapter so it can be run and reviewed without cloud credentials. Local mode supports a mock session, validated file metadata, renewal history, department filtering, dynamic dates, loading/error/empty/success states, and pure utility regression tests. It does not provide real authentication, shared persistence, cloud file upload, or email until the Member 2 and Member 3 Supabase/Resend work is connected.
 
+## Member 2 implementation
+
+The Member 2 backend, database, authentication, and cloud storage slice is implemented in this repository:
+
+* **Database Schema & Migrations (`supabase/schema.sql` & `supabase/migrations/`):**
+  * Relational PostgreSQL schema for `profiles`, `documents`, and `renewal_logs` with foreign keys, check constraints, and performance indexes.
+  * Automated profile creation trigger (`on_auth_user_created`) mapping newly registered Supabase auth users into `public.profiles`.
+* **Role-Based Access Control (RLS):**
+  * Row-Level Security policies active across `profiles`, `documents`, and `renewal_logs`.
+  * Security Definer functions `get_current_user_role()` and `get_current_user_department()` prevent recursion during policy checks.
+  * Enforces department-level scoping (`dept_head` and `staff` access only their own department records), while granting `admin` unrestricted cross-department visibility.
+* **Cloud Object Storage (Supabase Storage):**
+  * Setup of the private `documents` bucket.
+  * Storage RLS policies allowing authenticated uploads and department-scoped file downloads via signed URLs.
+* **Client & Server Integration Utilities (`src/lib/supabase/`):**
+  * `client.ts`: Browser singleton client using `@supabase/ssr` with connection status detection.
+  * `server.ts`: Cookie-aware server client for Server Components/Actions, plus `createAdminClient` with `SUPABASE_SERVICE_ROLE_KEY` (reserved for Member 3's cron job to query expiring documents across all departments).
+  * `services.ts`: Data access layer handling live document queries, cloud file uploads, document insertions, and renewals with audit log generation.
+* **Data Flow & UI Wiring:**
+  * Updated `/login` and `/dashboard` to automatically use live Supabase data when keys are configured, while retaining demo fallbacks if keys are not present.
+  * Pre-seeded default admin credentials (`admin@expirywatch.com` / `Admin@expirywatch123`).
+  * Updated `src/types/database.ts` with complete type definitions for full compile-time type safety.
+
 ### Local development
 
 ```bash
@@ -155,4 +183,4 @@ npm install
 npm run dev
 ```
 
-Open `http://localhost:3000` or `http://localhost:3000/login` to review the Member 1 flow. Use `npm test` for the local expiry-logic regression tests and `npm run build` for production verification.
+Open `http://localhost:3000` or `http://localhost:3000/login` to review the application and Supabase-connected flows. Use `npm test` for regression tests and `npm run build` for production verification.
