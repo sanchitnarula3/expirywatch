@@ -146,7 +146,7 @@ The Member 1 frontend slice is implemented in this repository:
 * `src/components/RenewalModal.tsx` updates the local expiry state and captures renewal notes for the future `renewal_logs` integration.
 * `src/components/StatusBadge.tsx` centralises the four README-defined urgency states.
 
-The current UI uses typed demo records so it can be run and reviewed without cloud credentials. It does not upload files, authenticate users, persist records, or send email until the Member 2 and Member 3 Supabase/Resend work is connected.
+The current UI uses typed demo records and a versioned browser-local adapter so it can be run and reviewed without cloud credentials. Local mode supports a mock session, validated file metadata, renewal history, department filtering, dynamic dates, loading/error/empty/success states, and pure utility regression tests. It does not provide real authentication, shared persistence, cloud file upload, or email until the Member 2 and Member 3 Supabase/Resend work is connected.
 
 ### Local development
 
@@ -155,4 +155,4 @@ npm install
 npm run dev
 ```
 
-Open `http://localhost:3000/login` to review the Member 1 flow. Production verification uses `npm run build`.
+Open `http://localhost:3000` or `http://localhost:3000/login` to review the Member 1 flow. Use `npm test` for the local expiry-logic regression tests and `npm run build` for production verification.
