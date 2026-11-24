@@ -3,6 +3,8 @@ node_modules/
 out/
 *.tsbuildinfo
 .test-build/
+.env
+.env.local
+.env.*.local
 .env*.local
 !.env.example
-
