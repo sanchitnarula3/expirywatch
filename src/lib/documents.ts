@@ -1,4 +1,4 @@
-import { DocumentRecord } from "@/types/database";
+import { DocumentRecord } from "../types/database";
 
 export type DocumentStatus = "expired" | "critical" | "upcoming" | "safe";
 
