@@ -184,3 +184,53 @@ npm run dev
 ```
 
 Open `http://localhost:3000` or `http://localhost:3000/login` to review the application and Supabase-connected flows. Use `npm test` for regression tests and `npm run build` for production verification.
+
+## Member 3 implementation
+
+The scheduled reminder and email delivery slice is implemented as follows:
+
+* `src/lib/resend.ts` sends plain-text expiry reminders through Resend.
+* `/api/cron/check-expiry` verifies `CRON_SECRET`, scans documents with the server-only Supabase client, and sends reminders for documents inside their configured reminder window.
+* Sequential cron executions skip documents already notified on the same UTC day. `last_notified_at` is updated only after Resend accepts the     email.
+* `vercel.json` invokes the route daily at 03:30 UTC (09:00 IST).
+
+### Reminder deployment configuration
+
+Set these variables in the Vercel production environment:
+
+```text
+NEXT_PUBLIC_SUPABASE_URL=...
+NEXT_PUBLIC_SUPABASE_ANON_KEY=...
+SUPABASE_SERVICE_ROLE_KEY=...
+RESEND_API_KEY=...
+RESEND_FROM_EMAIL=ExpiryWatch <reminders@your-verified-domain.com>
+CRON_SECRET=...
+```
+
+The address in `RESEND_FROM_EMAIL` must belong to a domain verified in Resend. Keep the service-role key, Resend API key, and cron secret in environment settings; never commit their real values.
+
+Run `npm test` and `npm run build` before deployment.
+
+### Supabase permissions
+
+The scheduled reminder endpoint requires the following database permissions. Run these commands in the Supabase SQL Editor during database setup:
+
+```sql
+GRANT SELECT, UPDATE ON public.documents TO service_role;
+GRANT SELECT ON public.profiles TO service_role;
+```
+
+### Local testing results
+
+- Cron endpoint authentication verified.
+- Document expiry detection verified.
+- Reminder email successfully received.
+- Notification timestamp successfully updated.
+- Same-day duplicate prevention verified for sequential requests.
+
+### Known limitations
+
+- Resend testing mode restricts delivery to the registered account email address.
+- Production email delivery requires a verified sending domain.
+- Concurrent cron executions may cause duplicate notifications.
+- Automated cron execution on Vercel requires verification after deployment.
