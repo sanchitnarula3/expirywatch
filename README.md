@@ -1,4 +1,8 @@
+<div align="center">
+
 # ExpiryWatch: Document Expiry and Renewal Tracker
+
+</div>
 
 **ExpiryWatch** is a centralised, cloud-hosted web application designed to help small organisations and individuals track time-sensitive documents—such as warranties, insurance policies, licences, certificates, and vendor contracts—and prevent missed renewals through automated reminders.
 
@@ -6,25 +10,44 @@
 
 ## Team & Project Details
 
-* **Course:** Cloud Computing
-* **Lab:** L402
-* **Faculty Advisor:** Ishani Rana
-* **Team Members:**
-  * **Parth Deshmukh** (`1024031045`) — `pdeshmukh_be24@thapar.edu`
-  * **Sanchit Narula** (`1024031048`) — `snarula_be24@thapar.edu`
-  * **Madhav Mahajan** (`1024031003`) — `mmahajan_be24@thapar.edu`
+| Project detail | Value |
+| :--- | :--- |
+| **Course** | Cloud Computing |
+| **Lab** | L402 |
+| **Faculty Advisor** | Ishani Rana |
+
+**Team Members**
+
+| Member | Roll number | Email |
+| :--- | :--- | :--- |
+| **Parth Deshmukh** | `1024031045` | `pdeshmukh_be24@thapar.edu` |
+| **Sanchit Narula** | `1024031048` | `snarula_be24@thapar.edu` |
+| **Madhav Mahajan** | `1024031003` | `mmahajan_be24@thapar.edu` |
 
 ---
 
 ## Core Features
 
-1. **Centralised Cloud Document Vault:** Upload scanned copies or PDF versions of documents directly to durable cloud object storage.
-2. **Metadata Tagging & Urgency Dashboard:** Tag documents by category, department, owner, and expiry date, and view upcoming renewals automatically sorted by urgency (`Expired`, `Critical < 7 days`, `Upcoming < 30 days`, `Safe`).
-3. **Role-Based Access Control (RBAC):**
-   * **Department Staff / Department Heads:** View, upload, and renew records belonging exclusively to their assigned department.
-   * **Administrators:** Full visibility and management across all organisational departments.
-4. **Automated Scheduled Reminders:** A serverless cron job runs daily to scan for documents approaching expiry and dispatches automated email alerts to document owners.
-5. **Renewal History Log:** Maintains an auditable log of every renewal event, preserving historical expiry dates and renewal notes over time.
+### 1. Centralised Cloud Document Vault
+
+Upload scanned copies or PDF versions of documents directly to durable cloud object storage.
+
+### 2. Metadata Tagging & Urgency Dashboard
+
+Tag documents by category, department, owner, and expiry date, and view upcoming renewals automatically sorted by urgency (`Expired`, `Critical < 7 days`, `Upcoming < 30 days`, `Safe`).
+
+### 3. Role-Based Access Control (RBAC)
+
+* **Department Staff / Department Heads:** View, upload, and renew records belonging exclusively to their assigned department.
+* **Administrators:** Full visibility and management across all organisational departments.
+
+### 4. Automated Scheduled Reminders
+
+A serverless cron job runs daily to scan for documents approaching expiry and dispatches automated email alerts to document owners.
+
+### 5. Renewal History Log
+
+Maintains an auditable log of every renewal event, preserving historical expiry dates and renewal notes over time.
 
 ---
 
@@ -57,6 +80,7 @@ ExpiryWatch decouples heavy file storage, relational metadata, authentication, b
 ## Cloud & Tech Stack
 
 ### Primary Architecture & Services
+
 Designed with a decoupled cloud architecture ensuring reliability, security, and seamless developer workflows:
 
 | Layer | Technology / Cloud Service | Role & Functionality |
@@ -81,33 +105,33 @@ For enterprise deployments on Amazon Web Services:
 
 ## Database Schema Overview
 
-1. **`profiles`**
-   * `id` (UUID, references `auth.users`)
-   * `full_name` (Text)
-   * `email` (Text)
-   * `role` (Enum: `'admin'`, `'dept_head'`, `'staff'`)
-   * `department` (Text, e.g., `'HR'`, `'IT'`, `'Finance'`, `'Operations'`)
+### 1. `profiles`
+* `id` (UUID, references `auth.users`)
+* `full_name` (Text)
+* `email` (Text)
+* `role` (Enum: `'admin'`, `'dept_head'`, `'staff'`)
+* `department` (Text, e.g., `'HR'`, `'IT'`, `'Finance'`, `'Operations'`)
 
-2. **`documents`**
-   * `id` (UUID, Primary Key)
-   * `title` (Text)
-   * `category` (Text: `'Insurance'`, `'Warranty'`, `'Licence'`, `'Contract'`, `'Certificate'`)
-   * `department` (Text)
-   * `owner_id` (UUID, references `profiles.id`)
-   * `file_path` (Text, object storage key)
-   * `expiry_date` (Date)
-   * `reminder_days_before` (Integer, default `7`)
-   * `last_notified_at` (Timestamp, nullable — prevents duplicate daily alerts)
-   * `created_at` (Timestamp)
+### 2. `documents`
+* `id` (UUID, Primary Key)
+* `title` (Text)
+* `category` (Text: `'Insurance'`, `'Warranty'`, `'Licence'`, `'Contract'`, `'Certificate'`)
+* `department` (Text)
+* `owner_id` (UUID, references `profiles.id`)
+* `file_path` (Text, object storage key)
+* `expiry_date` (Date)
+* `reminder_days_before` (Integer, default `7`)
+* `last_notified_at` (Timestamp, nullable — prevents duplicate daily alerts)
+* `created_at` (Timestamp)
 
-3. **`renewal_logs`**
-   * `id` (UUID, Primary Key)
-   * `document_id` (UUID, references `documents.id`)
-   * `renewed_by` (UUID, references `profiles.id`)
-   * `previous_expiry_date` (Date)
-   * `new_expiry_date` (Date)
-   * `notes` (Text)
-   * `renewed_at` (Timestamp)
+### 3. `renewal_logs`
+* `id` (UUID, Primary Key)
+* `document_id` (UUID, references `documents.id`)
+* `renewed_by` (UUID, references `profiles.id`)
+* `previous_expiry_date` (Date)
+* `new_expiry_date` (Date)
+* `notes` (Text)
+* `renewed_at` (Timestamp)
 
 ---
 
