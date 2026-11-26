@@ -175,11 +175,39 @@ export type Database = {
           },
         ];
       };
+      expiry_reminder_deliveries: {
+        Row: {
+          document_id: string;
+          expiry_date: string;
+          milestone: number;
+          claimed_at: string;
+          sent_at: string | null;
+        };
+        Insert: {
+          document_id: string;
+          expiry_date: string;
+          milestone: number;
+          claimed_at?: string;
+          sent_at?: string | null;
+        };
+        Update: {
+          document_id?: string;
+          expiry_date?: string;
+          milestone?: number;
+          claimed_at?: string;
+          sent_at?: string | null;
+        };
+        Relationships: [];
+      };
     };
     Views: {
       [_ in never]: never;
     };
     Functions: {
+      get_document_uploaders: {
+        Args: Record<PropertyKey, never>;
+        Returns: { document_id: string; uploader_name: string }[];
+      };
       get_current_user_role: {
         Args: Record<PropertyKey, never>;
         Returns: string;

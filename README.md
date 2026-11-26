@@ -190,8 +190,9 @@ Open `http://localhost:3000` or `http://localhost:3000/login` to review the appl
 The scheduled reminder and email delivery slice is implemented as follows:
 
 * `src/lib/resend.ts` sends plain-text expiry reminders through Resend.
-* `/api/cron/check-expiry` verifies `CRON_SECRET`, scans documents with the server-only Supabase client, and sends reminders for documents inside their configured reminder window.
-* Sequential cron executions skip documents already notified on the same UTC day. `last_notified_at` is updated only after Resend accepts the     email.
+* `/api/cron/check-expiry` verifies `CRON_SECRET` and sends one reminder in the 7-day window (with the accurate remaining days), at 1 day, and when expired (including overdue catch-up).
+* An authenticated document-specific endpoint requests the same server-only delivery logic immediately after uploads made at exactly 7, 1, or 0 days remaining. Upload success does not depend on email success.
+* `expiry_reminder_deliveries` prevents repeated milestones for the same document expiry date and protects concurrent cron requests with a database primary key. Renewal to a new expiry date starts a new reminder cycle.
 * `vercel.json` invokes the route daily at 03:30 UTC (09:00 IST).
 
 ### Reminder deployment configuration
@@ -216,8 +217,9 @@ Run `npm test` and `npm run build` before deployment.
 The scheduled reminder endpoint requires the following database permissions. Run these commands in the Supabase SQL Editor during database setup:
 
 ```sql
-GRANT SELECT, UPDATE ON public.documents TO service_role;
+GRANT SELECT ON public.documents TO service_role;
 GRANT SELECT ON public.profiles TO service_role;
+GRANT SELECT, INSERT, UPDATE, DELETE ON public.expiry_reminder_deliveries TO service_role;
 ```
 
 ### Local testing results
@@ -225,12 +227,11 @@ GRANT SELECT ON public.profiles TO service_role;
 - Cron endpoint authentication verified.
 - Document expiry detection verified.
 - Reminder email successfully received.
-- Notification timestamp successfully updated.
-- Same-day duplicate prevention verified for sequential requests.
+- Per-expiry milestone deduplication covered by regression tests.
+- Immediate-upload and cron milestone selection covered by regression tests.
 
 ### Known limitations
 
 - Resend testing mode restricts delivery to the registered account email address.
 - Production email delivery requires a verified sending domain.
-- Concurrent cron executions may cause duplicate notifications.
 - Automated cron execution on Vercel requires verification after deployment.

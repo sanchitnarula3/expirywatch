@@ -1,28 +1,7 @@
 import { NextResponse } from "next/server";
-import { sendExpiryReminder } from "@/lib/resend";
 import { createAdminClient } from "@/lib/supabase/server";
-
-const DAY_MS = 86_400_000;
-
-function startOfUtcDay(date: Date): Date {
-  const result = new Date(date);
-  result.setUTCHours(0, 0, 0, 0);
-  return result;
-}
-
-function daysUntilExpiry(expiryDate: string, today: Date): number {
-  const expiry = new Date(expiryDate + "T00:00:00Z");
-  return Math.ceil((expiry.getTime() - today.getTime()) / DAY_MS);
-}
-
-function wasNotifiedToday(lastNotifiedAt: string | null, today: Date): boolean {
-  if (!lastNotifiedAt) return false;
-
-  return (
-    new Date(lastNotifiedAt).toISOString().slice(0, 10) ===
-    today.toISOString().slice(0, 10)
-  );
-}
+import { daysUntilExpiry, milestoneForCron } from "@/lib/expiry-reminders";
+import { deliverDocumentReminder } from "@/lib/server/document-reminders";
 
 export async function GET(request: Request) {
   const cronSecret = process.env.CRON_SECRET;
@@ -37,7 +16,7 @@ export async function GET(request: Request) {
 
   try {
     const supabase = createAdminClient();
-    const today = startOfUtcDay(new Date());
+    const now = new Date();
 
     const [
       { data: documents, error: documentsError },
@@ -61,15 +40,10 @@ export async function GET(request: Request) {
     const errors: string[] = [];
 
     for (const document of documents ?? []) {
-      const daysRemaining = daysUntilExpiry(document.expiry_date, today);
-      const isInsideReminderWindow =
-        daysRemaining >= 0 &&
-        daysRemaining <= document.reminder_days_before;
+      const daysRemaining = daysUntilExpiry(document.expiry_date, now);
+      const milestone = milestoneForCron(daysRemaining);
 
-      if (
-        !isInsideReminderWindow ||
-        wasNotifiedToday(document.last_notified_at, today)
-      ) {
+      if (milestone === null) {
         skipped += 1;
         continue;
       }
@@ -84,21 +58,15 @@ export async function GET(request: Request) {
       }
 
       try {
-        await sendExpiryReminder({
-          ownerName: owner.full_name,
-          ownerEmail: owner.email,
-          documentTitle: document.title,
-          expiryDate: document.expiry_date,
+        const result = await deliverDocumentReminder({
+          admin: supabase,
+          document,
+          owner,
           daysRemaining,
+          milestone,
         });
-
-        const { error: updateError } = await supabase
-          .from("documents")
-          .update({ last_notified_at: new Date().toISOString() })
-          .eq("id", document.id);
-
-        if (updateError) throw updateError;
-        sent += 1;
+        if (result === "sent") sent += 1;
+        else skipped += 1;
       } catch (error) {
         failed += 1;
         errors.push(

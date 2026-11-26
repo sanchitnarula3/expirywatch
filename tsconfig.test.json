@@ -9,5 +9,5 @@
     "outDir": ".test-build",
     "rootDir": "."
   },
-  "include": ["src/lib/documents.ts", "src/types/database.ts", "tests/**/*.ts"]
+  "include": ["src/lib/documents.ts", "src/lib/expiry-reminders.ts", "src/types/database.ts", "tests/**/*.ts"]
 }

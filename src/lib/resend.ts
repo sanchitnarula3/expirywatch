@@ -35,8 +35,10 @@ export async function sendExpiryReminder({
     daysRemaining < 0
       ? `expired ${Math.abs(daysRemaining)} day(s) ago`
       : daysRemaining === 0
-        ? "expires today"
-        : `expires in ${daysRemaining} day(s)`;
+        ? "has expired today"
+        : daysRemaining === 1
+          ? "expires in 1 day"
+          : `expires in ${daysRemaining} days`;
 
   const resend = createResendClient();
 

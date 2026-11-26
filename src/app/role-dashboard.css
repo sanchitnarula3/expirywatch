@@ -1,0 +1,27 @@
+.member-group-label {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 700;
+  margin: 22px 0 10px;
+  text-transform: uppercase;
+}
+
+.member-card-button {
+  color: var(--ink);
+  cursor: pointer;
+  font: inherit;
+  text-align: left;
+  width: 100%;
+}
+
+.member-card-button:hover,
+.member-card-button.selected {
+  border-color: var(--green);
+  box-shadow: 0 3px 13px #194b2d18;
+}
+
+.member-arrow {
+  color: var(--green);
+  font-size: 25px;
+  margin-left: auto;
+}

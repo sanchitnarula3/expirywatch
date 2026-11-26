@@ -1,4 +1,5 @@
 import "./globals.css";
+import "./role-dashboard.css";
 
 export const metadata = { title: "ExpiryWatch", description: "Track documents before they expire." };
 

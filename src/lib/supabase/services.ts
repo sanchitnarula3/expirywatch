@@ -61,8 +61,7 @@ export async function signUpWithSupabase(
   email: string,
   password: string,
   fullName: string,
-  department: string = "Operations",
-  role: UserRole = "staff"
+  department: string = "Operations"
 ) {
   const supabase = createClient();
   const { data, error } = await supabase.auth.signUp({
@@ -72,7 +71,7 @@ export async function signUpWithSupabase(
       data: {
         full_name: fullName,
         department,
-        role,
+        role: "staff",
       },
     },
   });
@@ -149,6 +148,15 @@ export async function fetchSupabaseDocuments(
   return (data || []) as DocumentRecord[];
 }
 
+export async function fetchDocumentUploaderNames(): Promise<Record<string, string>> {
+  const supabase = createClient();
+  const { data, error } = await supabase.rpc("get_document_uploaders");
+  if (error) throw error;
+  return Object.fromEntries(
+    (data || []).map((item) => [item.document_id, item.uploader_name]),
+  );
+}
+
 export async function createSupabaseDocument(params: {
   title: string;
   category: DocumentCategory;
@@ -182,6 +190,25 @@ export async function createSupabaseDocument(params: {
 
   if (error) throw error;
   return data as DocumentRecord;
+}
+
+export async function deleteSupabaseDocument(
+  document: DocumentRecord,
+): Promise<{ storageRemoved: boolean }> {
+  const supabase = createClient();
+  const { data: deleted, error: deleteError } = await supabase
+    .from("documents")
+    .delete()
+    .eq("id", document.id)
+    .select("id")
+    .maybeSingle();
+  if (deleteError) throw deleteError;
+  if (!deleted) throw new Error("You do not have permission to delete this document.");
+
+  const { error: storageError } = await supabase.storage
+    .from("documents")
+    .remove([document.file_path]);
+  return { storageRemoved: !storageError };
 }
 
 // ------------------------------------------------------------------------------
