@@ -24,8 +24,11 @@ import { UploadModal } from "@/components/UploadModal";
 import { isSupabaseConfigured } from "@/lib/supabase/client";
 import {
   createSupabaseDocument,
+  deleteSupabaseDocument,
+  fetchDocumentUploaderNames,
   fetchSupabaseDocuments,
   fetchSupabaseRenewalLogs,
+  getDocumentDownloadUrl,
   getCurrentProfile,
   renewSupabaseDocument,
   signOutWithSupabase,
@@ -48,6 +51,11 @@ export default function DashboardPage() {
   const [uploadOpen, setUploadOpen] = useState(false);
   const [renewing, setRenewing] = useState<DocumentRecord | null>(null);
   const [isLiveBackend, setIsLiveBackend] = useState(false);
+  const [members, setMembers] = useState<Profile[]>([]);
+  const [uploaderNames, setUploaderNames] = useState<Record<string, string>>({});
+  const [accountOpen, setAccountOpen] = useState(false);
+  const [theme, setTheme] = useState<"light" | "dark">("light");
+  const [selectedHeadId, setSelectedHeadId] = useState("");
 
   const loadWorkspaceData = useCallback(async () => {
     const live = isSupabaseConfigured();
@@ -65,6 +73,23 @@ export default function DashboardPage() {
             ]);
             setDocuments(liveDocs);
             setRenewals(liveRenewals);
+            try {
+              setUploaderNames(await fetchDocumentUploaderNames());
+            } catch (uploaderError) {
+              console.warn("Uploader names are unavailable until the role migration is applied:", uploaderError);
+            }
+            if (liveProfile.role !== "staff") {
+              try {
+                const response = await fetch("/api/members");
+                if (!response.ok) throw new Error("Member directory request failed.");
+                const result = await response.json() as { members: Profile[] };
+                setMembers(result.members);
+                const firstHead = result.members.find((member) => member.role === "dept_head");
+                setSelectedHeadId(firstHead?.id || "");
+              } catch (memberError) {
+                console.warn("Member directory could not be loaded:", memberError);
+              }
+            }
           } catch (tableErr) {
             console.warn("Supabase tables not yet created, using starter documents:", tableErr);
             setDocuments(loadDocuments());
@@ -94,7 +119,28 @@ export default function DashboardPage() {
       .finally(() => setHydrated(true));
   }, [loadWorkspaceData]);
 
+  useEffect(() => {
+    const savedTheme = window.localStorage.getItem("expirywatch.theme");
+    const initialTheme = savedTheme === "dark" ? "dark" : "light";
+    setTheme(initialTheme);
+    document.documentElement.dataset.theme = initialTheme;
+  }, []);
+
+  function toggleTheme() {
+    const nextTheme = theme === "light" ? "dark" : "light";
+    setTheme(nextTheme);
+    document.documentElement.dataset.theme = nextTheme;
+    window.localStorage.setItem("expirywatch.theme", nextTheme);
+  }
+
   const departments = ["all", "HR", "IT", "Finance", "Operations"];
+  const departmentHeads = members.filter((member) => member.role === "dept_head");
+  const selectedHead = departmentHeads.find((member) => member.id === selectedHeadId);
+  const displayedMembers = profile?.role === "admin"
+    ? members.filter(
+        (member) => member.role === "staff" && member.department === selectedHead?.department,
+      )
+    : members;
 
   const scopedDocuments = useMemo(() => {
     return documents.filter((doc) =>
@@ -152,8 +198,17 @@ export default function DashboardPage() {
         });
 
         setDocuments((prev) => [...prev, newDoc]);
+        setUploaderNames((prev) => ({
+          ...prev,
+          [newDoc.id]: profile?.full_name || "Current user",
+        }));
         setUploadOpen(false);
         setNotice("Document uploaded and recorded in Supabase.");
+        fetch(`/api/documents/${newDoc.id}/send-expiry-reminder`, {
+          method: "POST",
+        }).catch((mailError) => {
+          console.warn("Document saved, but its immediate reminder could not be requested:", mailError);
+        });
         return;
       } catch (err: unknown) {
         const msg = err instanceof Error ? err.message : "Failed to upload document.";
@@ -232,8 +287,58 @@ export default function DashboardPage() {
     router.replace("/login");
   }
 
-  const initials = profile?.full_name
-    ? profile.full_name
+  async function deleteDocument(document: DocumentRecord) {
+    if (!profile || profile.role === "staff") return;
+    if (!window.confirm(`Delete “${document.title}”? This cannot be undone.`)) return;
+
+    setError("");
+    try {
+      if (isLiveBackend) {
+        const { storageRemoved } = await deleteSupabaseDocument(document);
+        setDocuments((prev) => prev.filter((item) => item.id !== document.id));
+        setNotice(
+          storageRemoved
+            ? "Document and its uploaded file were deleted."
+            : "Document was deleted, but its stored file could not be removed.",
+        );
+        return;
+      }
+
+      const next = documents.filter((item) => item.id !== document.id);
+      setDocuments(next);
+      saveDocuments(next);
+      setNotice("Document deleted from your local workspace.");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Document could not be deleted.");
+    }
+  }
+
+  async function viewDocument(document: DocumentRecord) {
+    setError("");
+    if (!isLiveBackend) {
+      setError("Document preview is available only for files stored in Supabase.");
+      return;
+    }
+
+    const previewWindow = window.open("", "_blank");
+    try {
+      const url = await getDocumentDownloadUrl(document.file_path);
+      if (previewWindow) previewWindow.location.href = url;
+      else window.open(url, "_blank", "noopener,noreferrer");
+    } catch (err) {
+      previewWindow?.close();
+      setError(err instanceof Error ? err.message : "Document could not be opened.");
+    }
+  }
+
+  const displayName = profile?.role === "admin" ? "Admin" : profile?.full_name || "User";
+  const roleLabel = profile?.role === "admin"
+    ? "Administrator"
+    : profile?.role === "dept_head"
+      ? "Department Head"
+      : "Staff";
+  const initials = displayName
+    ? displayName
         .split(" ")
         .map((n) => n[0])
         .join("")
@@ -263,7 +368,7 @@ export default function DashboardPage() {
   }
 
   return (
-    <main className="app-shell">
+    <main className={`app-shell role-${profile.role}`}>
       <aside className="sidebar">
         <div className="brand">
           <span className="brand-mark">E</span>
@@ -279,12 +384,19 @@ export default function DashboardPage() {
           <a className="nav-item" href="#renewals">
             <span>↻</span> Renewal history
           </a>
+          {profile.role !== "staff" && (
+            <a className="nav-item" href="#members">
+              <span>♙</span>
+              {profile.role === "admin" ? "All members" : "Department staff"}
+              <em>{members.length}</em>
+            </a>
+          )}
         </nav>
         <div className="sidebar-bottom">
           <div className="profile">
             <span className="avatar">{initials}</span>
             <div>
-              <strong>{profile.full_name}</strong>
+              <strong>{displayName}</strong>
               <small>
                 {profile.role === "admin"
                   ? "Administrator"
@@ -313,10 +425,45 @@ export default function DashboardPage() {
                 ● Supabase Connected
               </span>
             )}
-            <button className="icon-button" aria-label="Notifications">
-              ♧
+            <button
+              className="icon-button theme-toggle"
+              onClick={toggleTheme}
+              aria-label={`Switch to ${theme === "light" ? "dark" : "light"} mode`}
+              title={`Switch to ${theme === "light" ? "dark" : "light"} mode`}
+            >
+              {theme === "light" ? "☾" : "☀"}
             </button>
-            <span className="top-avatar">{initials}</span>
+            <div className="account-menu-wrap">
+              <button
+                className="top-avatar account-trigger"
+                onClick={() => setAccountOpen((open) => !open)}
+                aria-expanded={accountOpen}
+                aria-label="Open account details"
+              >
+                {initials}
+              </button>
+              {accountOpen && (
+                <div className="account-menu">
+                  <div className="account-menu-heading">
+                    <span className="account-avatar">{initials}</span>
+                    <div>
+                      <strong>{displayName}</strong>
+                      <small>{profile.email}</small>
+                    </div>
+                  </div>
+                  <dl>
+                    <div><dt>Designation</dt><dd>{roleLabel}</dd></div>
+                    {profile.role !== "admin" && (
+                      <div><dt>Department</dt><dd>{profile.department}</dd></div>
+                    )}
+                  </dl>
+                  <button className="account-logout" onClick={logout}>Log out</button>
+                </div>
+              )}
+            </div>
+            <span className="role-badge">
+              {roleLabel}
+            </span>
           </div>
         </header>
 
@@ -324,7 +471,7 @@ export default function DashboardPage() {
           <div className="page-heading">
             <div>
               <p className="eyebrow">{dateLabel}</p>
-              <h1>Good morning, {profile.full_name.split(" ")[0]}.</h1>
+              <h1>Good morning, {displayName}.</h1>
               <p className="muted">
                 Here&apos;s what needs your attention today.
               </p>
@@ -441,6 +588,7 @@ export default function DashboardPage() {
                   <tr>
                     <th>Document</th>
                     <th>Department</th>
+                    <th>Uploaded by</th>
                     <th>Expiry date</th>
                     <th>Status</th>
                     <th aria-label="Actions"></th>
@@ -458,6 +606,10 @@ export default function DashboardPage() {
                         </td>
                         <td>{doc.department}</td>
                         <td>
+                          {uploaderNames[doc.id] ||
+                            (doc.owner_id === profile.id ? profile.full_name : "Unknown user")}
+                        </td>
+                        <td>
                           {formatExpiryDate(doc.expiry_date)}
                           <small
                             className={status === "expired" ? "text-red" : ""}
@@ -471,12 +623,28 @@ export default function DashboardPage() {
                           <StatusBadge status={status} />
                         </td>
                         <td>
-                          <button
-                            className="row-action"
-                            onClick={() => setRenewing(doc)}
-                          >
-                            Renew
-                          </button>
+                          <div className="row-actions">
+                            <button
+                              className="row-action"
+                              onClick={() => viewDocument(doc)}
+                            >
+                              View
+                            </button>
+                            <button
+                              className="row-action"
+                              onClick={() => setRenewing(doc)}
+                            >
+                              Renew
+                            </button>
+                            {profile.role !== "staff" && (
+                              <button
+                                className="row-action row-action-danger"
+                                onClick={() => deleteDocument(doc)}
+                              >
+                                Delete
+                              </button>
+                            )}
+                          </div>
                         </td>
                       </tr>
                     );
@@ -492,6 +660,74 @@ export default function DashboardPage() {
               )}
             </div>
           </section>
+
+          {profile.role !== "staff" && (
+            <section className="members-section" id="members">
+              <div className="section-heading">
+                <div>
+                  <h2>
+                    {profile.role === "admin"
+                      ? "Department hierarchy"
+                      : `${profile.department} staff`}
+                  </h2>
+                  <span className="record-count">{members.length} members</span>
+                </div>
+              </div>
+              {profile.role === "admin" && (
+                <>
+                  <p className="member-group-label">Department heads</p>
+                  <div className="member-grid">
+                    {departmentHeads.map((member) => (
+                      <button
+                        className={`member-card member-card-button ${selectedHeadId === member.id ? "selected" : ""}`}
+                        key={member.id}
+                        onClick={() => setSelectedHeadId(member.id)}
+                      >
+                        <span className="member-avatar">
+                          {member.full_name.split(" ").map((part) => part[0]).join("").slice(0, 2).toUpperCase()}
+                        </span>
+                        <div>
+                          <strong>{member.full_name}</strong>
+                          <small>{member.email}</small>
+                          <span>{member.department} · Department Head</span>
+                        </div>
+                        <b className="member-arrow">›</b>
+                      </button>
+                    ))}
+                    {departmentHeads.length === 0 && (
+                      <div className="history-empty">No department heads were found.</div>
+                    )}
+                  </div>
+                </>
+              )}
+              {(profile.role !== "admin" || selectedHead) && (
+                <>
+                  <p className="member-group-label">
+                    {profile.role === "admin"
+                      ? `${selectedHead?.department} staff under ${selectedHead?.full_name}`
+                      : "Staff members"}
+                  </p>
+                  <div className="member-grid">
+                    {displayedMembers.map((member) => (
+                      <article className="member-card" key={member.id}>
+                        <span className="member-avatar">
+                          {member.full_name.split(" ").map((part) => part[0]).join("").slice(0, 2).toUpperCase()}
+                        </span>
+                        <div>
+                          <strong>{member.full_name}</strong>
+                          <small>{member.email}</small>
+                          <span>{member.department} · Staff</span>
+                        </div>
+                      </article>
+                    ))}
+                    {displayedMembers.length === 0 && (
+                      <div className="history-empty">No staff members were found for this department.</div>
+                    )}
+                  </div>
+                </>
+              )}
+            </section>
+          )}
 
           <section className="renewal-section" id="renewals">
             <div className="section-heading">
@@ -529,6 +765,7 @@ export default function DashboardPage() {
         <UploadModal
           onClose={() => setUploadOpen(false)}
           onSubmit={addDocument}
+          fixedDepartment={profile.role === "admin" ? undefined : profile.department}
         />
       )}
       {renewing && (

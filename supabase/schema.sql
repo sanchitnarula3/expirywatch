@@ -42,6 +42,20 @@ create table if not exists public.renewal_logs (
   renewed_at timestamptz not null default now()
 );
 
+-- 5. Server-only reminder delivery ledger (one send per expiry cycle/milestone)
+create table if not exists public.expiry_reminder_deliveries (
+  document_id uuid not null references public.documents(id) on delete cascade,
+  expiry_date date not null,
+  milestone smallint not null check (milestone in (0, 1, 7)),
+  claimed_at timestamptz not null default now(),
+  sent_at timestamptz,
+  primary key (document_id, expiry_date, milestone)
+);
+
+alter table public.expiry_reminder_deliveries enable row level security;
+revoke all on public.expiry_reminder_deliveries from anon, authenticated;
+grant select, insert, update, delete on public.expiry_reminder_deliveries to service_role;
+
 -- Indexes for fast querying
 create index if not exists idx_documents_department on public.documents(department);
 create index if not exists idx_documents_expiry_date on public.documents(expiry_date);
@@ -91,7 +105,10 @@ to authenticated
 using (
   id = auth.uid()
   or public.get_current_user_role() = 'admin'
-  or department = public.get_current_user_department()
+  or (
+    public.get_current_user_role() = 'dept_head'
+    and department = public.get_current_user_department()
+  )
 );
 
 drop policy if exists "profiles_update_policy" on public.profiles;
@@ -203,7 +220,7 @@ begin
     new.id,
     coalesce(nullif(trim(new.raw_user_meta_data->>'full_name'), ''), split_part(new.email, '@', 1)),
     coalesce(new.email, ''),
-    coalesce(nullif(trim(new.raw_user_meta_data->>'role'), ''), 'staff'),
+    'staff',
     coalesce(nullif(trim(new.raw_user_meta_data->>'department'), ''), 'Operations')
   )
   on conflict (id) do update set
@@ -232,7 +249,13 @@ drop policy if exists "Authenticated users can upload documents" on storage.obje
 create policy "Authenticated users can upload documents"
 on storage.objects for insert
 to authenticated
-with check (bucket_id = 'documents');
+with check (
+  bucket_id = 'documents'
+  and (
+    public.get_current_user_role() = 'admin'
+    or lower((storage.foldername(name))[1]) = lower(public.get_current_user_department())
+  )
+);
 
 drop policy if exists "Authenticated users can view department documents" on storage.objects;
 create policy "Authenticated users can view department documents"
@@ -258,7 +281,30 @@ to authenticated
 using (
   bucket_id = 'documents'
   and public.get_current_user_role() in ('admin', 'dept_head')
+  and (
+    public.get_current_user_role() = 'admin'
+    or lower((storage.foldername(name))[1]) = lower(public.get_current_user_department())
+  )
 );
+
+-- Narrow uploader-name lookup: staff can see names attached to accessible documents,
+-- without receiving access to the organisation member directory.
+create or replace function public.get_document_uploaders()
+returns table (document_id uuid, uploader_name text)
+language sql
+security definer
+set search_path = public
+stable
+as $$
+  select d.id, p.full_name
+  from public.documents d
+  join public.profiles p on p.id = d.owner_id
+  where public.get_current_user_role() = 'admin'
+     or d.department = public.get_current_user_department();
+$$;
+
+revoke all on function public.get_document_uploaders() from public;
+grant execute on function public.get_document_uploaders() to authenticated;
 
 
 -- ==============================================================================

@@ -6,14 +6,15 @@
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
-    "test": "rm -rf .test-build && tsc -p tsconfig.test.json && node --test .test-build/tests/documents.test.js"
+    "test": "node -e \"require('fs').rmSync('.test-build',{recursive:true,force:true})\" && tsc -p tsconfig.test.json && node --test .test-build/tests/documents.test.js .test-build/tests/expiry-reminders.test.js"
   },
   "dependencies": {
     "@supabase/ssr": "^0.12.7",
     "@supabase/supabase-js": "^2.119.2",
     "next": "^16.4.6",
     "react": "^19.3.1",
-    "react-dom": "^19.3.1"
+    "react-dom": "^19.3.1",
+    "resend": "^6.39.0"
   },
   "devDependencies": {
     "@types/node": "22.10.1",

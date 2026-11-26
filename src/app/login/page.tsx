@@ -5,7 +5,6 @@ import { useRouter } from "next/navigation";
 import { signInLocally } from "@/lib/local-auth";
 import { isSupabaseConfigured } from "@/lib/supabase/client";
 import { signInWithSupabase, signUpWithSupabase } from "@/lib/supabase/services";
-import { UserRole } from "@/types/database";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -13,7 +12,6 @@ export default function LoginPage() {
   const [password, setPassword] = useState("");
   const [fullName, setFullName] = useState("");
   const [department, setDepartment] = useState("Operations");
-  const [role, setRole] = useState<UserRole>("staff");
   const [isSignUp, setIsSignUp] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -49,7 +47,7 @@ export default function LoginPage() {
           setLoading(false);
           return;
         }
-        await signUpWithSupabase(email, password, fullName.trim(), department, role);
+        await signUpWithSupabase(email, password, fullName.trim(), department);
         setNotice("Account created! Signing you in...");
         try {
           await signInWithSupabase(email, password);
@@ -113,33 +111,19 @@ export default function LoginPage() {
                   />
                 </label>
 
-                <div className="form-grid">
-                  <label>
-                    Department
-                    <select
-                      value={department}
-                      onChange={(event) => setDepartment(event.target.value)}
-                    >
-                      {["HR", "IT", "Finance", "Operations"].map((dept) => (
-                        <option key={dept} value={dept}>
-                          {dept}
-                        </option>
-                      ))}
-                    </select>
-                  </label>
-
-                  <label>
-                    Role
-                    <select
-                      value={role}
-                      onChange={(event) => setRole(event.target.value as UserRole)}
-                    >
-                      <option value="staff">Staff</option>
-                      <option value="dept_head">Dept Head</option>
-                      <option value="admin">Admin</option>
-                    </select>
-                  </label>
-                </div>
+                <label>
+                  Department
+                  <select
+                    value={department}
+                    onChange={(event) => setDepartment(event.target.value)}
+                  >
+                    {["HR", "IT", "Finance", "Operations"].map((dept) => (
+                      <option key={dept} value={dept}>
+                        {dept}
+                      </option>
+                    ))}
+                  </select>
+                </label>
               </>
             )}
 

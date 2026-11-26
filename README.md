@@ -184,3 +184,54 @@ npm run dev
 ```
 
 Open `http://localhost:3000` or `http://localhost:3000/login` to review the application and Supabase-connected flows. Use `npm test` for regression tests and `npm run build` for production verification.
+
+## Member 3 implementation
+
+The scheduled reminder and email delivery slice is implemented as follows:
+
+* `src/lib/resend.ts` sends plain-text expiry reminders through Resend.
+* `/api/cron/check-expiry` verifies `CRON_SECRET` and sends one reminder in the 7-day window (with the accurate remaining days), at 1 day, and when expired (including overdue catch-up).
+* An authenticated document-specific endpoint requests the same server-only delivery logic immediately after uploads made at exactly 7, 1, or 0 days remaining. Upload success does not depend on email success.
+* `expiry_reminder_deliveries` prevents repeated milestones for the same document expiry date and protects concurrent cron requests with a database primary key. Renewal to a new expiry date starts a new reminder cycle.
+* `vercel.json` invokes the route daily at 03:30 UTC (09:00 IST).
+
+### Reminder deployment configuration
+
+Set these variables in the Vercel production environment:
+
+```text
+NEXT_PUBLIC_SUPABASE_URL=...
+NEXT_PUBLIC_SUPABASE_ANON_KEY=...
+SUPABASE_SERVICE_ROLE_KEY=...
+RESEND_API_KEY=...
+RESEND_FROM_EMAIL=ExpiryWatch <reminders@your-verified-domain.com>
+CRON_SECRET=...
+```
+
+The address in `RESEND_FROM_EMAIL` must belong to a domain verified in Resend. Keep the service-role key, Resend API key, and cron secret in environment settings; never commit their real values.
+
+Run `npm test` and `npm run build` before deployment.
+
+### Supabase permissions
+
+The scheduled reminder endpoint requires the following database permissions. Run these commands in the Supabase SQL Editor during database setup:
+
+```sql
+GRANT SELECT ON public.documents TO service_role;
+GRANT SELECT ON public.profiles TO service_role;
+GRANT SELECT, INSERT, UPDATE, DELETE ON public.expiry_reminder_deliveries TO service_role;
+```
+
+### Local testing results
+
+- Cron endpoint authentication verified.
+- Document expiry detection verified.
+- Reminder email successfully received.
+- Per-expiry milestone deduplication covered by regression tests.
+- Immediate-upload and cron milestone selection covered by regression tests.
+
+### Known limitations
+
+- Resend testing mode restricts delivery to the registered account email address.
+- Production email delivery requires a verified sending domain.
+- Automated cron execution on Vercel requires verification after deployment.

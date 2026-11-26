@@ -8,13 +8,15 @@ const categories: DocumentCategory[] = ["Insurance", "Warranty", "Licence", "Con
 export function UploadModal({
   onClose,
   onSubmit,
+  fixedDepartment,
 }: {
   onClose: () => void;
   onSubmit: (document: DocumentRecord, file?: File) => void | Promise<void>;
+  fixedDepartment?: string;
 }) {
   const [title, setTitle] = useState("");
   const [category, setCategory] = useState<DocumentCategory>("Insurance");
-  const [department, setDepartment] = useState("Operations");
+  const [department, setDepartment] = useState(fixedDepartment || "Operations");
   const [expiryDate, setExpiryDate] = useState("");
   const [fileName, setFileName] = useState("");
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
@@ -109,6 +111,7 @@ export function UploadModal({
             <select
               value={department}
               onChange={(event) => setDepartment(event.target.value)}
+              disabled={Boolean(fixedDepartment)}
             >
               {["HR", "IT", "Finance", "Operations"].map((item) => (
                 <option key={item}>{item}</option>
